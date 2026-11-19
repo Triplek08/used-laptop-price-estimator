@@ -1,0 +1,15 @@
+{
+  "brand": "Dell",
+  "model_name": "XPS 13",
+  "laptop_type": "Ultrabook",
+  "year": 2021,
+  "cpu": "Intel Core i7",
+  "ram_gb": 16,
+  "storage_gb": 512,
+  "storage_type": "ssd",
+  "gpu": null,
+  "screen_inches": null,
+  "issues": ["scratches"],
+  "battery_runtime": "half_day",
+  "battery_health_pct": null
+}

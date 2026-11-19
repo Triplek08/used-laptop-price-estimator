@@ -1,0 +1,65 @@
+{
+  "id": "A-00042A",
+  "created_at": "2026-11-19T12:00:00Z",
+  "currency": "NGN",
+  "condition_grade": "good",
+  "base_value": 420000,
+  "contributions": [
+    {
+      "feature": "brand",
+      "label": "Dell brand",
+      "amount": 34000,
+      "source": "model"
+    },
+    {
+      "feature": "laptop_type",
+      "label": "Ultrabook build",
+      "amount": 54000,
+      "source": "model"
+    },
+    {
+      "feature": "cpu",
+      "label": "Intel Core i7",
+      "amount": 76000,
+      "source": "model"
+    },
+    {
+      "feature": "ram_gb",
+      "label": "16 GB RAM",
+      "amount": 76000,
+      "source": "model"
+    },
+    {
+      "feature": "storage_gb",
+      "label": "512 GB storage",
+      "amount": 46000,
+      "source": "model"
+    },
+    {
+      "feature": "year",
+      "label": "Age, 5 years",
+      "amount": -354000,
+      "source": "model"
+    },
+    {
+      "feature": "battery_runtime",
+      "label": "Battery: half a day",
+      "amount": -18000,
+      "source": "model"
+    }
+  ],
+  "estimate": 334000,
+  "range": {
+    "low": 295000,
+    "high": 375000,
+    "confidence": 0.8
+  },
+  "model": {
+    "kind": "mock",
+    "name": "Mock pricer",
+    "version": "0.0-mock",
+    "mae": 45000,
+    "r2": null,
+    "trained_on_rows": null
+  }
+}

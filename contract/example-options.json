@@ -1,0 +1,87 @@
+{
+  "currency": "NGN",
+  "brands": [
+    "Acer",
+    "Apple",
+    "Asus",
+    "Dell",
+    "HP",
+    "Lenovo",
+    "Microsoft",
+    "MSI",
+    "Samsung",
+    "Toshiba",
+    "Other"
+  ],
+  "laptop_types": [
+    "Notebook",
+    "Ultrabook",
+    "Gaming",
+    "2-in-1",
+    "Workstation"
+  ],
+  "cpus": [
+    "Intel Celeron / Pentium",
+    "Intel Core i3",
+    "Intel Core i5",
+    "Intel Core i7",
+    "Intel Core i9",
+    "AMD Ryzen 3",
+    "AMD Ryzen 5",
+    "AMD Ryzen 7",
+    "AMD Ryzen 9",
+    "Apple M1",
+    "Apple M2",
+    "Apple M3",
+    "Apple M4"
+  ],
+  "ram_gb": [
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "storage_gb": [
+    128,
+    256,
+    512,
+    1024,
+    2048
+  ],
+  "screen_inches": [
+    11.6,
+    13.3,
+    14.0,
+    15.6,
+    16.0,
+    17.3
+  ],
+  "year_min": 2012,
+  "year_max": 2026,
+  "condition_rule": {
+    "points": {
+      "scratches": 1,
+      "worn_keys": 1,
+      "repaired": 1,
+      "dent_or_crack": 2,
+      "screen_damage": 2,
+      "loose_hinge": 2,
+      "something_broken": 3
+    },
+    "min_points": {
+      "like_new": 0,
+      "good": 1,
+      "fair": 3,
+      "worn": 5
+    }
+  },
+  "model": {
+    "kind": "mock",
+    "name": "Mock pricer",
+    "version": "0.0-mock",
+    "mae": 45000,
+    "r2": null,
+    "trained_on_rows": null
+  }
+}
