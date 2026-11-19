@@ -416,7 +416,7 @@ details.exact[open] summary::before { content: "\2212"; }
   <h3>Notes for the group</h3>
   <div class="note">
     <h4>Live updates</h4>
-    <p>The slip prints once, as soon as the required answers are in. After that, a change rewinds the paper into the printer as far as the first line that changed, then prints again from there, with the estimate tallying from the old price to the new one. The app waits a moment after each change, cancels requests still in flight, and ignores answers that arrive out of order.</p>
+    <p>The slip prints once, as soon as the required answers are in. After that, a change rewinds the paper into the printer as far as the first line that changed, then prints again from there. The app waits a moment after each change, cancels requests still in flight, and ignores answers that arrive out of order.</p>
   </div>
   <div class="note">
     <h4>Battery by how long it lasts</h4>
@@ -755,7 +755,7 @@ details.exact[open] summary::before { content: "\2212"; }
     if (downs.length) { addRow("gapdown", "gap", "", { "data-anat": "lines" }); addRow("hdown", "h", "TAKES AWAY", { "data-anat": "lines" }); downs.forEach(lineRow); }
 
     addRow("dbl1", "dbl", "");
-    addRow("total", "total", `<span class="lbl">ESTIMATE</span><span class="tot">${naira(a.estimate)}</span>`, { "data-anat": "estimate" });
+    addRow("total", "total lit",`<span class="lbl">ESTIMATE</span><span class="tot">${naira(a.estimate)}</span>`, { "data-anat": "estimate" });
     addRow("range", "kv range", `<span>FAIR RANGE</span><span>${naira(a.low)} – ${naira(a.high)}</span>`, { "data-anat": "range" });
     addRow("rangefine", "fine", "8 in 10 laptops like this sell within this range", { "data-anat": "range" });
     addRow("dbl2", "dbl", "");
@@ -799,19 +799,6 @@ details.exact[open] summary::before { content: "\2212"; }
     if (c.contains("line")) return 95;
     return 70;
   }
-  // A timer rather than requestAnimationFrame, so a background tab can't stall it.
-  function countUp(el, from, to, ms, fmtFn = naira) {
-    return new Promise((resolve) => {
-      if (skip || reduce || from === to) { el.textContent = fmtFn(to); resolve(); return; }
-      const t0 = performance.now();
-      const step = () => {
-        const k = Math.min(1, (performance.now() - t0) / ms), e = 1 - Math.pow(1 - k, 3);
-        el.textContent = fmtFn(Math.round((from + (to - from) * e) / 1000) * 1000);
-        if (k < 1 && !skip) setTimeout(step, 30); else { el.textContent = fmtFn(to); resolve(); }
-      };
-      step();
-    });
-  }
   function resetFeed() {
     feed.style.transition = "none";
     feed.className = "feed";
@@ -825,7 +812,6 @@ details.exact[open] summary::before { content: "\2212"; }
     renderSlip(a, specs);
     feed.style.transition = "none";
     feed.style.height = PAD + slip.offsetHeight + "px";
-    $(".r.total", slip).classList.add("lit");
     fitMachine();
     void feed.offsetHeight; feed.style.transition = "";
     feed.classList.add("done");
@@ -846,15 +832,8 @@ details.exact[open] summary::before { content: "\2212"; }
     for (const r of $$(".r", slip)) {
       feed.style.height = PAD + r.offsetTop + r.offsetHeight + "px";
       r.classList.add("ink");
-      if (reduce) continue;
-      if (r.classList.contains("total")) {
-        await countUp($(".tot", r), current.base, current.estimate, 760);
-        await sleep(140);
-        r.classList.add("lit");
-        await sleep(260);
-      } else await sleep(delayFor(r));
+      if (!reduce) await sleep(delayFor(r));
     }
-    $(".r.total", slip).classList.add("lit");
     feed.style.height = PAD + slip.offsetHeight + "px";
     await sleep(reduce ? 0 : 240);
     slip.classList.remove("printing");
@@ -862,7 +841,6 @@ details.exact[open] summary::before { content: "\2212"; }
     await sleep(reduce ? 0 : 450);
     busy = false;
     setStatus("live");
-    updateMobileBar(current.base);
     $("#live").textContent = `Appraisal printed. Estimate ${naira(current.estimate)}, fair range ${naira(current.low)} to ${naira(current.high)}.`;
     if (dirty) { dirty = false; specsChanged(); }
   }
@@ -880,10 +858,8 @@ details.exact[open] summary::before { content: "\2212"; }
     if (busy) { dirty = true; return; }
     next.id = current.id;
     next.date = current.date;
-    const prev = current;
     await reprint(next);
     setStatus("live");
-    updateMobileBar(prev.estimate);
     $("#live").textContent = `Estimate updated to ${naira(next.estimate)}.`;
     if (dirty) { dirty = false; specsChanged(); }
   }
@@ -897,7 +873,6 @@ details.exact[open] summary::before { content: "\2212"; }
     return 45;
   }
   async function reprint(next) {
-    const prev = current;
     current = next;
     const draft = document.createElement("div");
     renderSlip(next, specs, draft);
@@ -928,15 +903,8 @@ details.exact[open] summary::before { content: "\2212"; }
     for (const r of fresh) {
       feed.style.height = PAD + r.offsetTop + r.offsetHeight + "px";
       r.classList.add("ink");
-      if (reduce) continue;
-      if (r.classList.contains("total")) {
-        await countUp($(".tot", r), prev.estimate, next.estimate, 520);
-        await sleep(100);
-        r.classList.add("lit");
-        await sleep(160);
-      } else await sleep(reprintDelay(r));
+      if (!reduce) await sleep(reprintDelay(r));
     }
-    $(".r.total", slip).classList.add("lit");
     feed.style.height = PAD + slip.offsetHeight + "px";
     await sleep(reduce ? 0 : 160);
     fresh.forEach((r) => r.classList.remove("fresh", "ink"));
@@ -987,7 +955,7 @@ details.exact[open] summary::before { content: "\2212"; }
       hint.textContent = "Click the slip to skip ahead.";
     }
   }
-  function updateMobileBar(from) {
+  function updateMobileBar() {
     const k = $("#mbK"), v = $("#mbV"), go = $("#mbGo");
     if (status === "printing") { k.textContent = "Printing your slip"; v.textContent = "…"; go.hidden = false; return; }
     if (status === "waiting" || !current) {
@@ -999,7 +967,7 @@ details.exact[open] summary::before { content: "\2212"; }
     }
     go.hidden = false;
     k.textContent = status === "offline" ? "Last estimate" : "Live estimate";
-    countUp(v, from ?? current.estimate, current.estimate, 480);
+    v.textContent = naira(current.estimate);
   }
   $("#mbGo").addEventListener("click", () => $("#counter").scrollIntoView({ block: "end", behavior: reduce ? "auto" : "smooth" }));
 
