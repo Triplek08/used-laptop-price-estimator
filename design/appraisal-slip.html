@@ -153,7 +153,8 @@ details.exact[open] summary::before { content: "\2212"; }
 .feed.done .slip { transform: translateY(-30px); box-shadow: 0 22px 30px -20px rgba(0, 0, 0, .45), 0 2px 5px rgba(0, 0, 0, .08); }
 .slip.printing .r { opacity: 0; }
 .slip.printing .r.ink { animation: ink .3s ease-out forwards; }
-.r.reink { animation: ink .4s ease-out; }
+.r.fresh { opacity: 0; }
+.r.fresh.ink { animation: ink .3s ease-out forwards; }
 @keyframes ink { 0% { opacity: .06; filter: blur(1.4px); } 55% { opacity: .85; filter: blur(.3px); } 100% { opacity: 1; filter: none; } }
 .r { transition: opacity .4s; }
 .stage.is-offline .slip .r { opacity: .35; }
@@ -415,7 +416,7 @@ details.exact[open] summary::before { content: "\2212"; }
   <h3>Notes for the group</h3>
   <div class="note">
     <h4>Live updates</h4>
-    <p>The slip prints once, as soon as the required answers are in. After that every change updates it in place: changed lines re-ink, bars slide, and the estimate rolls to its new value. The app waits a moment after each change, cancels requests still in flight, and ignores answers that arrive out of order.</p>
+    <p>The slip prints once, as soon as the required answers are in. After that, a change rewinds the paper into the printer as far as the first line that changed, then prints again from there, with the estimate tallying from the old price to the new one. The app waits a moment after each change, cancels requests still in flight, and ignores answers that arrive out of order.</p>
   </div>
   <div class="note">
     <h4>Battery by how long it lasts</h4>
@@ -626,7 +627,7 @@ details.exact[open] summary::before { content: "\2212"; }
     if (on) $("#usingText").textContent = `Using exact battery health: ${specs.healthPct}%`;
   }
 
-  function specsChanged() {
+  function specsChanged(wait = DEBOUNCE) {
     updateMissing();
     clearTimeout(changeTimer);
     if (busy) { dirty = true; return; }
@@ -636,7 +637,7 @@ details.exact[open] summary::before { content: "\2212"; }
       return;
     }
     if (status === "waiting") changeTimer = setTimeout(() => printSlip(), 450);
-    else changeTimer = setTimeout(liveUpdate, DEBOUNCE);
+    else changeTimer = setTimeout(liveUpdate, wait);
   }
 
   form.addEventListener("change", (e) => {
@@ -668,7 +669,7 @@ details.exact[open] summary::before { content: "\2212"; }
     }
     specsChanged();
   });
-  $("#modelName").addEventListener("input", (e) => { specs.modelName = e.target.value.trim(); specsChanged(); });
+  $("#modelName").addEventListener("input", (e) => { specs.modelName = e.target.value.trim(); specsChanged(800); });
 
   const showHow = (tile) => { $("#howto").innerHTML = tile ? `<b>How to check:</b> ${esc(tile.dataset.how)}` : HOWTO_DEFAULT; };
   $("#tiles").addEventListener("mouseover", (e) => showHow(e.target.closest(".tile")));
@@ -713,14 +714,16 @@ details.exact[open] summary::before { content: "\2212"; }
     while (total < 200) { const w = 1 + Math.floor(rnd() * 3), g = 1 + Math.floor(rnd() * 3); html += `<span style="width:${w}px;margin-right:${g}px"></span>`; total += w + g; }
     return html;
   }
+  let rowTarget = slip;
   function addRow(key, cls, html, attrs) {
     const d = document.createElement("div");
     d.className = "r " + cls; d.innerHTML = html; d.dataset.key = key;
     if (attrs) for (const k in attrs) d.setAttribute(k, attrs[k]);
-    slip.appendChild(d); return d;
+    rowTarget.appendChild(d); return d;
   }
-  function renderSlip(a, s) {
-    slip.innerHTML = "";
+  function renderSlip(a, s, into = slip) {
+    rowTarget = into;
+    into.innerHTML = "";
     addRow("logo", "logo", "<span>TALLY</span>");
     addRow("head", "c dim", "LAPTOP APPRAISAL · AMOUNTS IN ₦");
     addRow("rule1", "rule", "");
@@ -759,6 +762,7 @@ details.exact[open] summary::before { content: "\2212"; }
     addRow("mae", "c", `Usually within ±${naira(a.mae)} of the real price`, { "data-anat": "mae" });
     addRow("maefine", "c dim", "Mock pricer 0.0 · sample prices", { "data-anat": "mae" });
     addRow("barcode", "barcode", barcode(a.id), { "aria-hidden": "true" });
+    rowTarget = slip;
   }
 
   const isStacked = () => stackedQuery.matches;
@@ -865,47 +869,80 @@ details.exact[open] summary::before { content: "\2212"; }
   stage.addEventListener("click", (e) => { if (busy && !e.target.closest("button")) skip = true; });
 
   async function liveUpdate() {
-    if (busy || status === "waiting") return;
+    if (status === "waiting") return;
+    if (busy) { dirty = true; return; }
     const seq = ++requestSeq;
     setLed("busy", "UPDATING");
     let next;
     try { next = await requestAppraisal(clone(specs)); }
     catch { if (seq === requestSeq) setStatus("offline"); return; }
-    if (seq !== requestSeq || busy || status === "waiting") return;
+    if (seq !== requestSeq || status === "waiting") return;
+    if (busy) { dirty = true; return; }
     next.id = current.id;
-    applyUpdate(next);
-    setStatus("live");
-  }
-  function applyUpdate(next) {
-    const before = new Map($$(".r[data-key]", slip).map((r) => [r.dataset.key, { text: r.textContent, width: $(".bar i", r)?.style.width }]));
+    next.date = current.date;
     const prev = current;
-    current = next;
-    renderSlip(next, specs);
-    const total = $(".r.total", slip);
-    total.classList.add("lit");
-    $$(".r[data-key]", slip).forEach((r) => {
-      const old = before.get(r.dataset.key);
-      if (!old) { r.classList.add("reink"); return; }
-      const bar = $(".bar i", r);
-      if (bar && old.width && old.width !== bar.style.width && !reduce) {
-        const target = bar.style.width;
-        bar.style.width = old.width;
-        void bar.offsetWidth;
-        bar.style.transition = "width .45s cubic-bezier(.2, .8, .2, 1)";
-        bar.style.width = target;
-      }
-      if (r !== total && old.text !== r.textContent) r.classList.add("reink");
-    });
-    if (prev.estimate !== next.estimate) {
-      total.classList.add("reink");
-      countUp($(".tot", total), prev.estimate, next.estimate, 480);
-    }
-    feed.style.transition = "height .3s ease";
-    feed.style.height = PAD + slip.offsetHeight + "px";
-    setTimeout(() => { feed.style.transition = ""; }, 320);
-    fitMachine();
+    await reprint(next);
+    setStatus("live");
     updateMobileBar(prev.estimate);
     $("#live").textContent = `Estimate updated to ${naira(next.estimate)}.`;
+    if (dirty) { dirty = false; specsChanged(); }
+  }
+  function reprintDelay(r) {
+    const c = r.classList;
+    if (c.contains("h")) return 110;
+    if (c.contains("rule") || c.contains("dbl")) return 40;
+    if (c.contains("gap")) return 30;
+    if (c.contains("barcode")) return 100;
+    if (c.contains("line")) return 60;
+    return 45;
+  }
+  async function reprint(next) {
+    const prev = current;
+    current = next;
+    const draft = document.createElement("div");
+    renderSlip(next, specs, draft);
+    const oldRows = $$(".r", slip);
+    const newRows = Array.from(draft.children);
+    const same = (a, b) => a.dataset.key === b.dataset.key && a.innerHTML === b.innerHTML;
+    let from = 0;
+    while (from < oldRows.length && from < newRows.length && same(oldRows[from], newRows[from])) from++;
+    if (from === oldRows.length && from === newRows.length) return;
+
+    busy = true; skip = false; dirty = false;
+    setLed("busy", "REPRINTING");
+    if (!reduce) {
+      feed.classList.remove("done");
+      await sleep(240);
+      const kept = from > 0 ? oldRows[from - 1].offsetTop + oldRows[from - 1].offsetHeight : 0;
+      const distance = feed.offsetHeight - (PAD + kept);
+      const rewind = Math.round(Math.min(650, Math.max(260, distance * 0.9)));
+      feed.style.transition = `height ${rewind}ms cubic-bezier(.5, 0, .75, 1)`;
+      feed.style.height = PAD + kept + "px";
+      await sleep(rewind + 60);
+      feed.style.transition = "";
+    }
+    oldRows.slice(from).forEach((r) => r.remove());
+    const fresh = newRows.slice(from);
+    fresh.forEach((r) => { r.classList.add("fresh"); slip.appendChild(r); });
+    fitMachine();
+    for (const r of fresh) {
+      feed.style.height = PAD + r.offsetTop + r.offsetHeight + "px";
+      r.classList.add("ink");
+      if (reduce) continue;
+      if (r.classList.contains("total")) {
+        await countUp($(".tot", r), prev.estimate, next.estimate, 520);
+        await sleep(100);
+        r.classList.add("lit");
+        await sleep(160);
+      } else await sleep(reprintDelay(r));
+    }
+    $(".r.total", slip).classList.add("lit");
+    feed.style.height = PAD + slip.offsetHeight + "px";
+    await sleep(reduce ? 0 : 160);
+    fresh.forEach((r) => r.classList.remove("fresh", "ink"));
+    feed.classList.add("done");
+    await sleep(reduce ? 0 : 380);
+    busy = false;
   }
   function clearSlip() {
     requestSeq++;
@@ -1034,7 +1071,7 @@ details.exact[open] summary::before { content: "\2212"; }
   slip.addEventListener("mouseover", (e) => {
     clearLinks();
     const row = e.target.closest(".r.line[data-feature]");
-    if (!row || status !== "live") return;
+    if (!row || status !== "live" || busy) return;
     row.classList.add("hl");
     const feats = row.dataset.feature.split(" ");
     const amt = signed(Number(row.dataset.amount));
@@ -1048,7 +1085,7 @@ details.exact[open] summary::before { content: "\2212"; }
   form.addEventListener("mouseover", (e) => {
     $$(".r.hl", slip).forEach((r) => r.classList.remove("hl"));
     const f = e.target.closest(".field[data-field]");
-    if (!f || status !== "live") return;
+    if (!f || status !== "live" || busy) return;
     const keys = f.dataset.field.split(" ");
     $$(".r.line[data-feature]", slip).forEach((r) => {
       const feats = r.dataset.feature.split(" ");
